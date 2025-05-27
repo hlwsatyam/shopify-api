@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
+const s = require("dotenv").config();
 
 const app = express();
 const PORT = 3001;
@@ -20,7 +21,7 @@ app.post("/api/shopify", async (req, res) => {
       {
         headers: {
           "Content-Type": "application/json",
-          "X-Shopify-Access-Token": "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",
+          "X-Shopify-Access-Token": process.env.SHOPIFY_API_KEY,
         },
       }
     );
