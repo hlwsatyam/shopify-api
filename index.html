@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Fireplace Lounge</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    #container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    #viewer {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    #product-popup {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      width: 300px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      padding: 15px;
+      display: none;
+      z-index: 1000;
+    }
+    #product-popup img {
+      width: 100%;
+      height: auto;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    #product-popup h3 {
+      margin: 0 0 10px 0;
+      font-size: 18px;
+    }
+    #product-popup .price {
+      font-weight: bold;
+      font-size: 16px;
+      margin-bottom: 15px;
+      color: #333;
+    }
+    #product-popup button {
+      background: #000;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 100%;
+    }
+    #product-popup button:hover {
+      opacity: 0.9;
+    }
+    .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: none;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <iframe
+      id="viewer"
+      style="border: none"
+      scrolling="no"
+      allowfullscreen
+      allow="gyroscope; accelerometer; xr-spatial-tracking; vr;"
+      src="https://3d.oneloomxr.com/fireplace_lounge_01_v1-1/"
+    ></iframe>
+
+    <div id="product-popup">
+      <button class="close-btn">&times;</button>
+      <img id="product-image" src="" alt="Product Image" />
+      <h3 id="product-title">Product Title</h3>
+      <div class="price" id="product-price">$0.00</div>
+      <button id="view-product-btn"  onclick="viewProduct()">View Product</button>
+    </div>
+  </div>
+
+  <script>
+    // DOM Elements
+    const viewer = document.getElementById('viewer');
+    const productPopup = document.getElementById('product-popup');
+    const productImage = document.getElementById('product-image');
+    const productTitle = document.getElementById('product-title');
+    const productPrice = document.getElementById('product-price');
+    const viewProductBtn = document.getElementById('view-product-btn');
+    const closeBtn = document.querySelector('.close-btn');
+
+    // Current selection tracker
+    let currentSelection;
+
+    // Message listener for 3D viewer selections
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'SELECTION_UPDATE') {
+        currentSelection = event.data.payload.selection;
+        if (currentSelection.texture) {
+          fetchProductData(currentSelection.texture);
+        }
+      }
+    });
+
+ const viewProduct = () => {
+      if (currentSelection && currentSelection.texture) {
+        window.open(`https://kgnknc-fi.myshopify.com/products/${currentSelection.texture}`, '_blank');
+      }
+    };
+
+    // Close popup handler
+    closeBtn.addEventListener('click', () => {
+      productPopup.style.display = 'none';
+    });
+
+    // View product button handler
+    viewProductBtn.addEventListener('click', () => {
+      if (currentSelection && currentSelection.texture) {
+        window.open(`https://kgnknc-fi.myshopify.com/products/${currentSelection.texture}`, '_blank');
+      }
+    });
+
+    // Fetch product data through our proxy
+    async function fetchProductData(handle) {
+      const query = `
+        query GetProductByHandle($handle: String!) {
+          productByHandle(handle: $handle) {
+            id
+            title
+            handle
+            descriptionHtml
+            variants(first: 10) {
+              edges {
+                node {
+                  price
+                  sku
+                }
+              }
+            }
+            images(first: 1) {
+              edges {
+                node {
+                  src
+                  altText
+                }
+              }
+            }
+          }
+        }
+      `;
+      
+      const variables = { handle };
+
+      try {
+        const response = await fetch('http://localhost:3001/api/shopify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ query, variables })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Network error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        if (data.errors) {
+          throw new Error(data.errors[0].message);
+        }
+
+        if (data.data?.productByHandle) {
+          updateProductPopup(data.data.productByHandle);
+        }
+      } catch (error) {
+        console.error('Fetch error:', error);
+        showFallbackProduct();
+      }
+    }
+
+    // Update popup with product data
+    function updateProductPopup(product) {
+      productTitle.textContent = product.title;
+      
+      if (product.variants?.edges?.length > 0) {
+        productPrice.textContent = `$${product.variants.edges[0].node.price}`;
+      }
+      
+      if (product.images?.edges?.length > 0) {
+        productImage.src = product.images.edges[0].node.src;
+        productImage.alt = product.images.edges[0].node.altText || product.title;
+      }
+      
+      productPopup.style.display = 'block';
+    }
+
+    // Show fallback product data
+    function showFallbackProduct() {
+      productTitle.textContent = currentSelection?.texture || 'Wall Art';
+      productPrice.textContent = '$99.99';
+      productImage.src = 'https://via.placeholder.com/300x300?text=Product+Image';
+      productImage.alt = 'Product Image';
+      productPopup.style.display = 'block';
+    }
+  </script>
+</body>
+</html>
