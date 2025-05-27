@@ -4,7 +4,7 @@ const axios = require("axios");
 const s = require("dotenv").config();
 
 const app = express();
-const PORT = 3001;
+const PORT =  process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
